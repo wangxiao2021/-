@@ -1,0 +1,1100 @@
+```html
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>篮球记分板 Pro - Courtside Scoreboard</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Chakra Petch & Teko for Arena LED Scoreboard Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,600;0,700;1,700&family=Inter:wght@500;700;900&family=Teko:wght@600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --font-score: 'Teko', 'Chakra Petch', system-ui, -apple-system, sans-serif;
+      --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #07090e;
+      font-family: var(--font-ui);
+      color: #ffffff;
+    }
+
+    /* Force Landscape Container when phone is in Portrait and Auto-Rotate is enabled */
+    #app-viewport {
+      width: 100vw;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    @media screen and (orientation: portrait) {
+      body.force-landscape #app-viewport {
+        width: 100dvh;
+        height: 100vw;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(90deg);
+        transform-origin: center center;
+      }
+    }
+
+    /* Scoreboard Number Typography */
+    .score-digits {
+      font-family: var(--font-score);
+      line-height: 0.84;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
+    }
+
+    /* Subtle Arena Carbon Mesh Pattern */
+    .bg-arena-mesh {
+      background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+      background-size: 16px 16px;
+    }
+
+    /* Red & Blue Rich Gradients */
+    .team-red-card {
+      background: linear-gradient(155deg, #991b1b 0%, #dc2626 48%, #7f1d1d 100%);
+      box-shadow: inset 0 2px 24px rgba(255, 255, 255, 0.18), 0 10px 30px -5px rgba(220, 38, 38, 0.35);
+    }
+    .team-red-card:active {
+      background: linear-gradient(155deg, #b91c1c 0%, #ef4444 50%, #991b1b 100%);
+    }
+
+    .team-blue-card {
+      background: linear-gradient(155deg, #1e3a8a 0%, #2563eb 48%, #172554 100%);
+      box-shadow: inset 0 2px 24px rgba(255, 255, 255, 0.18), 0 10px 30px -5px rgba(37, 99, 235, 0.35);
+    }
+    .team-blue-card:active {
+      background: linear-gradient(155deg, #1d4ed8 0%, #3b82f6 50%, #1e3a8a 100%);
+    }
+
+    /* Score Pop / Flip Animations */
+    @keyframes scorePop {
+      0% { transform: scale(1); }
+      35% { transform: scale(1.14) translateY(-4px); filter: brightness(1.3); }
+      100% { transform: scale(1) translateY(0); filter: brightness(1); }
+    }
+
+    @keyframes scorePopThree {
+      0% { transform: scale(1) rotate(0deg); }
+      25% { transform: scale(1.24) rotate(-2deg); text-shadow: 0 0 38px rgba(253, 224, 71, 0.95); }
+      55% { transform: scale(1.15) rotate(2deg); }
+      100% { transform: scale(1) rotate(0deg); }
+    }
+
+    .animate-score-pop {
+      animation: scorePop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .animate-score-three {
+      animation: scorePopThree 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* Floating Point Burst Animation */
+    @keyframes floatUpFade {
+      0% {
+        opacity: 1;
+        transform: translate(-50%, -20%) scale(0.7);
+      }
+      40% {
+        opacity: 1;
+        transform: translate(-50%, -85%) scale(1.18);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -155%) scale(0.95);
+      }
+    }
+
+    .floating-badge {
+      position: absolute;
+      pointer-events: none;
+      z-index: 40;
+      font-family: var(--font-score);
+      font-weight: 700;
+      animation: floatUpFade 0.72s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* 3-Point Button Special Shimmer */
+    .btn-three-red {
+      background: linear-gradient(135deg, #f59e0b 0%, #ea580c 50%, #dc2626 100%);
+      box-shadow: 0 4px 18px rgba(234, 88, 12, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+    }
+    .btn-three-blue {
+      background: linear-gradient(135deg, #06b6d4 0%, #2563eb 55%, #4f46e5 100%);
+      box-shadow: 0 4px 18px rgba(37, 99, 235, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+    }
+
+    /* Active button tactile press */
+    .tactile-btn {
+      transition: transform 0.08s ease, filter 0.12s ease, box-shadow 0.12s ease;
+    }
+    .tactile-btn:active {
+      transform: scale(0.94);
+      filter: brightness(1.15);
+    }
+  </style>
+</head>
+<body class="force-landscape select-none">
+
+  <!-- Main Rotatable Viewport -->
+  <div id="app-viewport" class="bg-slate-950 bg-arena-mesh p-2 sm:p-3 gap-2">
+
+    <!-- ================= TOP CONTROL BAR ================= -->
+    <header class="h-12 sm:h-14 w-full bg-slate-900/90 backdrop-blur-md border border-slate-800/90 rounded-2xl px-2.5 sm:px-4 flex items-center justify-between gap-1.5 sm:gap-3 shrink-0 shadow-lg z-20">
+      
+      <!-- Left: Default Tap Increment Selector (点击加分: +1 / +2 / +3) -->
+      <div class="flex items-center gap-1.5 sm:gap-2 bg-slate-950/90 p-1 rounded-xl border border-slate-800">
+        <span class="text-[11px] sm:text-xs font-bold text-slate-400 pl-1.5 pr-0.5 whitespace-nowrap">
+          点击牌面
+        </span>
+        <div class="flex items-center gap-1" role="group" aria-label="点击加分档位">
+          <button
+            type="button"
+            onclick="setTapIncrement(1)"
+            id="inc-btn-1"
+            class="tactile-btn px-2.5 py-1 rounded-lg text-xs sm:text-sm font-black transition-all"
+          >
+            +1
+          </button>
+          <button
+            type="button"
+            onclick="setTapIncrement(2)"
+            id="inc-btn-2"
+            class="tactile-btn px-2.5 py-1 rounded-lg text-xs sm:text-sm font-black transition-all"
+          >
+            +2
+          </button>
+          <button
+            type="button"
+            onclick="setTapIncrement(3)"
+            id="inc-btn-3"
+            class="tactile-btn px-2.5 py-1 rounded-lg text-xs sm:text-sm font-black transition-all"
+          >
+            +3
+          </button>
+        </div>
+      </div>
+
+      <!-- Center: Score Diff / Match Status Pill -->
+      <div class="hidden md:flex items-center gap-2 bg-slate-950/80 border border-slate-800/80 px-3 py-1 rounded-xl">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span id="score-diff-badge" class="text-xs font-bold text-slate-300 tracking-wide">平局 TIED</span>
+      </div>
+
+      <!-- Right: Utility Controls (Undo, Swap Sides, Reset, Sound, Orientation, Fullscreen) -->
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <!-- Undo Button -->
+        <button
+          type="button"
+          id="undo-btn"
+          onclick="undoLastAction()"
+          disabled
+          class="tactile-btn flex items-center gap-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-35 disabled:pointer-events-none text-slate-100 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold border border-slate-700/80"
+          title="撤销上一步"
+        >
+          <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.3">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+          </svg>
+          <span>撤销</span>
+        </button>
+
+        <!-- Swap Sides Button -->
+        <button
+          type="button"
+          onclick="swapSides()"
+          class="tactile-btn flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-100 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold border border-slate-700/80"
+          title="左右换边"
+        >
+          <svg class="w-4 h-4 text-sky-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.3">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+          </svg>
+          <span>换边</span>
+        </button>
+
+        <!-- Reset Button -->
+        <button
+          type="button"
+          onclick="openResetModal()"
+          class="tactile-btn flex items-center gap-1 bg-rose-950/80 hover:bg-rose-900 text-rose-200 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold border border-rose-800/70"
+          title="重置比分"
+        >
+          <svg class="w-4 h-4 text-rose-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.3">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+          </svg>
+          <span>重置</span>
+        </button>
+
+        <!-- Sound / Haptic Toggle -->
+        <button
+          type="button"
+          id="sound-btn"
+          onclick="toggleSound()"
+          class="tactile-btn flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700/80"
+          title="音效与震动开关"
+        >
+          <svg id="sound-icon-on" class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
+          </svg>
+          <svg id="sound-icon-off" class="w-4 h-4 text-slate-500 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 9.75L19.5 12m0 0l2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5-6l4.72-4.72a.75.75 0 011.28.531V19.94a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.506-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.395C2.806 8.757 3.63 8.25 4.51 8.25H6.75z" />
+          </svg>
+        </button>
+
+        <!-- Rotate Orientation Lock Toggle (helpful when phone is in portrait) -->
+        <button
+          type="button"
+          id="rotate-btn"
+          onclick="toggleForceLandscape()"
+          class="tactile-btn flex md:hidden items-center justify-center w-8 h-8 sm:w-9 sm:h-9 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-xl border border-slate-700/80"
+          title="切换强制横屏旋转"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+          </svg>
+        </button>
+
+        <!-- Fullscreen Button -->
+        <button
+          type="button"
+          onclick="toggleFullScreen()"
+          class="tactile-btn flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700/80"
+          title="全屏显示"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ================= MAIN SPLIT SCOREBOARD AREA ================= -->
+    <main id="scoreboard-grid" class="flex-1 w-full grid grid-cols-2 gap-2.5 sm:gap-4 min-h-0">
+
+      <!-- ================= RED TEAM PANEL ================= -->
+      <section
+        id="panel-red"
+        class="flex flex-col h-full min-h-0 rounded-3xl bg-gradient-to-b from-rose-950/70 to-slate-900/90 border-2 border-red-500/40 p-2 sm:p-3 gap-2 shadow-2xl relative overflow-hidden"
+      >
+        <!-- Team Header Bar -->
+        <div class="flex items-center justify-between px-2 py-0.5 shrink-0">
+          <button
+            type="button"
+            onclick="openTeamNameModal('red')"
+            class="group flex items-center gap-1.5 text-left rounded-xl px-2 py-1 -ml-1 hover:bg-red-500/20 transition"
+            title="点击修改红队名称"
+          >
+            <span class="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_10px_#ef4444]"></span>
+            <span id="name-red" class="text-base sm:text-xl font-black tracking-wide text-red-100 truncate max-w-[140px] sm:max-w-[220px]">
+              红队 RED
+            </span>
+            <svg class="w-3.5 h-3.5 text-red-300/60 group-hover:text-red-200 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />
+            </svg>
+          </button>
+
+          <!-- Crown / Leading Indicator + Tap Hint -->
+          <div class="flex items-center gap-1.5">
+            <span id="lead-badge-red" class="hidden px-2 py-0.5 text-[11px] font-extrabold rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40">
+              👑 领先
+            </span>
+            <span id="tap-hint-red" class="text-[11px] sm:text-xs font-bold px-2 py-0.5 rounded-full bg-red-950/90 text-red-200 border border-red-400/30">
+              点牌面 +2
+            </span>
+          </div>
+        </div>
+
+        <!-- Giant Tap-to-Score Card -->
+        <div
+          id="card-red"
+          onclick="handleCardTap('red', event)"
+          role="button"
+          tabindex="0"
+          aria-label="红队加分牌面"
+          class="team-red-card flex-1 min-h-0 rounded-2xl relative flex items-center justify-center cursor-pointer overflow-hidden border border-red-400/30 select-none"
+        >
+          <!-- Subtle Basketball Court Arc Watermark -->
+          <svg class="absolute inset-0 w-full h-full opacity-10 pointer-events-none" viewBox="0 0 200 140" preserveAspectRatio="none">
+            <circle cx="100" cy="140" r="85" fill="none" stroke="white" stroke-width="2.5" />
+            <circle cx="100" cy="140" r="32" fill="none" stroke="white" stroke-width="2" stroke-dasharray="4 4" />
+          </svg>
+
+          <!-- Giant Score Digits -->
+          <div
+            id="score-red"
+            class="score-digits text-[24vw] sm:text-[25vw] md:text-[23vw] font-bold text-white select-none pointer-events-none"
+          >
+            0
+          </div>
+
+          <!-- Bottom-right micro tap prompt -->
+          <div class="absolute bottom-2 right-3 text-[10px] sm:text-xs font-bold text-red-100/70 tracking-wider uppercase pointer-events-none">
+            TAP TO SCORE
+          </div>
+        </div>
+
+        <!-- Quick-Action Buttons Row (+3 三分 prominent, +2, +1, -1) -->
+        <div class="grid grid-cols-12 gap-1.5 sm:gap-2 h-12 sm:h-14 shrink-0">
+          <!-- Prominent +3 Three-Pointer Button (5 cols) -->
+          <button
+            type="button"
+            onclick="addScore('red', 3, event)"
+            class="tactile-btn btn-three-red col-span-5 rounded-xl flex items-center justify-center gap-1 text-white font-black text-sm sm:text-lg tracking-wide border border-amber-300/50"
+          >
+            <span class="text-base sm:text-xl">🔥</span>
+            <span>+3 三分</span>
+          </button>
+
+          <!-- +2 Button (3 cols) -->
+          <button
+            type="button"
+            onclick="addScore('red', 2, event)"
+            class="tactile-btn col-span-3 bg-red-600 hover:bg-red-500 active:bg-red-400 text-white font-black text-sm sm:text-lg rounded-xl border border-red-400/40 shadow-md"
+          >
+            +2
+          </button>
+
+          <!-- +1 Free Throw Button (2 cols) -->
+          <button
+            type="button"
+            onclick="addScore('red', 1, event)"
+            class="tactile-btn col-span-2 bg-red-800/90 hover:bg-red-700 text-red-100 font-black text-sm sm:text-base rounded-xl border border-red-500/30"
+          >
+            +1
+          </button>
+
+          <!-- -1 Correction Button (2 cols) -->
+          <button
+            type="button"
+            onclick="addScore('red', -1, event)"
+            class="tactile-btn col-span-2 bg-slate-900/90 hover:bg-slate-800 text-red-300 font-bold text-xs sm:text-base rounded-xl border border-red-500/25"
+            title="红队减1分纠错"
+          >
+            -1
+          </button>
+        </div>
+      </section>
+
+      <!-- ================= BLUE TEAM PANEL ================= -->
+      <section
+        id="panel-blue"
+        class="flex flex-col h-full min-h-0 rounded-3xl bg-gradient-to-b from-blue-950/70 to-slate-900/90 border-2 border-blue-500/40 p-2 sm:p-3 gap-2 shadow-2xl relative overflow-hidden"
+      >
+        <!-- Team Header Bar -->
+        <div class="flex items-center justify-between px-2 py-0.5 shrink-0">
+          <button
+            type="button"
+            onclick="openTeamNameModal('blue')"
+            class="group flex items-center gap-1.5 text-left rounded-xl px-2 py-1 -ml-1 hover:bg-blue-500/20 transition"
+            title="点击修改蓝队名称"
+          >
+            <span class="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_10px_#3b82f6]"></span>
+            <span id="name-blue" class="text-base sm:text-xl font-black tracking-wide text-blue-100 truncate max-w-[140px] sm:max-w-[220px]">
+              蓝队 BLUE
+            </span>
+            <svg class="w-3.5 h-3.5 text-blue-300/60 group-hover:text-blue-200 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />
+            </svg>
+          </button>
+
+          <!-- Crown / Leading Indicator + Tap Hint -->
+          <div class="flex items-center gap-1.5">
+            <span id="lead-badge-blue" class="hidden px-2 py-0.5 text-[11px] font-extrabold rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40">
+              👑 领先
+            </span>
+            <span id="tap-hint-blue" class="text-[11px] sm:text-xs font-bold px-2 py-0.5 rounded-full bg-blue-950/90 text-blue-200 border border-blue-400/30">
+              点牌面 +2
+            </span>
+          </div>
+        </div>
+
+        <!-- Giant Tap-to-Score Card -->
+        <div
+          id="card-blue"
+          onclick="handleCardTap('blue', event)"
+          role="button"
+          tabindex="0"
+          aria-label="蓝队加分牌面"
+          class="team-blue-card flex-1 min-h-0 rounded-2xl relative flex items-center justify-center cursor-pointer overflow-hidden border border-blue-400/30 select-none"
+        >
+          <!-- Subtle Basketball Court Arc Watermark -->
+          <svg class="absolute inset-0 w-full h-full opacity-10 pointer-events-none" viewBox="0 0 200 140" preserveAspectRatio="none">
+            <circle cx="100" cy="140" r="85" fill="none" stroke="white" stroke-width="2.5" />
+            <circle cx="100" cy="140" r="32" fill="none" stroke="white" stroke-width="2" stroke-dasharray="4 4" />
+          </svg>
+
+          <!-- Giant Score Digits -->
+          <div
+            id="score-blue"
+            class="score-digits text-[24vw] sm:text-[25vw] md:text-[23vw] font-bold text-white select-none pointer-events-none"
+          >
+            0
+          </div>
+
+          <!-- Bottom-right micro tap prompt -->
+          <div class="absolute bottom-2 right-3 text-[10px] sm:text-xs font-bold text-blue-100/70 tracking-wider uppercase pointer-events-none">
+            TAP TO SCORE
+          </div>
+        </div>
+
+        <!-- Quick-Action Buttons Row (+3 三分 prominent, +2, +1, -1) -->
+        <div class="grid grid-cols-12 gap-1.5 sm:gap-2 h-12 sm:h-14 shrink-0">
+          <!-- Prominent +3 Three-Pointer Button (5 cols) -->
+          <button
+            type="button"
+            onclick="addScore('blue', 3, event)"
+            class="tactile-btn btn-three-blue col-span-5 rounded-xl flex items-center justify-center gap-1 text-white font-black text-sm sm:text-lg tracking-wide border border-cyan-300/50"
+          >
+            <span class="text-base sm:text-xl">🔥</span>
+            <span>+3 三分</span>
+          </button>
+
+          <!-- +2 Button (3 cols) -->
+          <button
+            type="button"
+            onclick="addScore('blue', 2, event)"
+            class="tactile-btn col-span-3 bg-blue-600 hover:bg-blue-500 active:bg-blue-400 text-white font-black text-sm sm:text-lg rounded-xl border border-blue-400/40 shadow-md"
+          >
+            +2
+          </button>
+
+          <!-- +1 Free Throw Button (2 cols) -->
+          <button
+            type="button"
+            onclick="addScore('blue', 1, event)"
+            class="tactile-btn col-span-2 bg-blue-800/90 hover:bg-blue-700 text-blue-100 font-black text-sm sm:text-base rounded-xl border border-blue-500/30"
+          >
+            +1
+          </button>
+
+          <!-- -1 Correction Button (2 cols) -->
+          <button
+            type="button"
+            onclick="addScore('blue', -1, event)"
+            class="tactile-btn col-span-2 bg-slate-900/90 hover:bg-slate-800 text-blue-300 font-bold text-xs sm:text-base rounded-xl border border-blue-500/25"
+            title="蓝队减1分纠错"
+          >
+            -1
+          </button>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ================= TOAST NOTIFICATION ================= -->
+    <div
+      id="toast-banner"
+      class="pointer-events-none fixed top-16 left-1/2 -translate-x-1/2 z-50 opacity-0 transition-all duration-200 transform -translate-y-2 bg-slate-900/95 border border-slate-700 text-white px-4 py-1.5 rounded-full shadow-xl text-xs sm:text-sm font-bold flex items-center gap-2"
+    >
+      <span id="toast-text">已撤销</span>
+    </div>
+
+    <!-- ================= RESET CONFIRMATION MODAL ================= -->
+    <div
+      id="reset-modal"
+      class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
+    >
+      <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-sm w-full p-5 shadow-2xl flex flex-col gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 font-black text-lg">
+            !
+          </div>
+          <div>
+            <h3 class="text-base sm:text-lg font-black text-white">确认重置当前比分？</h3>
+            <p class="text-xs text-slate-400">红蓝双方比分将归零，可通过“撤销”恢复。</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2.5 pt-1">
+          <button
+            type="button"
+            onclick="closeResetModal()"
+            class="tactile-btn py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onclick="confirmResetScores()"
+            class="tactile-btn py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-sm shadow-lg shadow-rose-600/30"
+          >
+            确认清零
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= EDIT TEAM NAME MODAL ================= -->
+    <div
+      id="name-modal"
+      class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
+    >
+      <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-md w-full p-5 shadow-2xl flex flex-col gap-3.5">
+        <div class="flex items-center justify-between">
+          <h3 id="name-modal-title" class="text-base sm:text-lg font-black text-white">修改队伍名称</h3>
+          <button
+            type="button"
+            onclick="closeTeamNameModal()"
+            class="text-slate-400 hover:text-white text-sm font-bold px-2 py-1"
+          >
+            关闭
+          </button>
+        </div>
+
+        <input
+          id="team-name-input"
+          type="text"
+          maxlength="16"
+          placeholder="输入队伍名称..."
+          class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white font-bold text-base focus:outline-none focus:border-amber-400 select-text"
+        />
+
+        <!-- Quick Team Name Presets -->
+        <div class="flex flex-wrap gap-1.5">
+          <button type="button" onclick="applyPresetName('红队 RED')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-red-300">红队 RED</button>
+          <button type="button" onclick="applyPresetName('蓝队 BLUE')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-blue-300">蓝队 BLUE</button>
+          <button type="button" onclick="applyPresetName('主队 HOME')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300">主队 HOME</button>
+          <button type="button" onclick="applyPresetName('客队 AWAY')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300">客队 AWAY</button>
+          <button type="button" onclick="applyPresetName('一队 TEAM A')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300">一队 TEAM A</button>
+          <button type="button" onclick="applyPresetName('二队 TEAM B')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300">二队 TEAM B</button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5 pt-1">
+          <button
+            type="button"
+            onclick="closeTeamNameModal()"
+            class="tactile-btn py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onclick="saveTeamName()"
+            class="tactile-btn py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm"
+          >
+            保存名称
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ================= APPLICATION LOGIC ================= -->
+  <script>
+    // --- State Management ---
+    const STORAGE_KEY = 'basketball_scoreboard_pro_v1';
+
+    let state = {
+      redScore: 0,
+      blueScore: 0,
+      redName: '红队 RED',
+      blueName: '蓝队 BLUE',
+      tapIncrement: 2, // Default points added when tapping the giant score card (+1, +2, or +3)
+      swapped: false,  // False: Red on Left, Blue on Right. True: Blue on Left, Red on Right
+      soundEnabled: true,
+      forceLandscape: true,
+      history: []      // Stack of previous states for Undo
+    };
+
+    let editingTeam = null;
+    let audioCtx = null;
+    let toastTimer = null;
+
+    // --- Initialization ---
+    window.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      renderAll();
+
+      // Allow Enter key in team name input
+      const nameInput = document.getElementById('team-name-input');
+      nameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') saveTeamName();
+      });
+    });
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          state.redScore = Number.isFinite(parsed.redScore) ? parsed.redScore : 0;
+          state.blueScore = Number.isFinite(parsed.blueScore) ? parsed.blueScore : 0;
+          state.redName = parsed.redName || '红队 RED';
+          state.blueName = parsed.blueName || '蓝队 BLUE';
+          state.tapIncrement = [1, 2, 3].includes(parsed.tapIncrement) ? parsed.tapIncrement : 2;
+          state.swapped = Boolean(parsed.swapped);
+          state.soundEnabled = parsed.soundEnabled !== undefined ? Boolean(parsed.soundEnabled) : true;
+          state.forceLandscape = parsed.forceLandscape !== undefined ? Boolean(parsed.forceLandscape) : true;
+        }
+      } catch (err) {
+        console.warn('Failed to load scoreboard state:', err);
+      }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          redScore: state.redScore,
+          blueScore: state.blueScore,
+          redName: state.redName,
+          blueName: state.blueName,
+          tapIncrement: state.tapIncrement,
+          swapped: state.swapped,
+          soundEnabled: state.soundEnabled,
+          forceLandscape: state.forceLandscape
+        }));
+      } catch (err) {
+        console.warn('Failed to save scoreboard state:', err);
+      }
+    }
+
+    // --- Web Audio API Synthesizer & Haptics ---
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function triggerFeedback(type) {
+      // Haptic Vibration
+      if (state.soundEnabled && navigator.vibrate) {
+        if (type === 'three') navigator.vibrate([35, 40, 65]);
+        else if (type === 'score') navigator.vibrate(25);
+        else if (type === 'minus' || type === 'undo') navigator.vibrate(15);
+        else if (type === 'reset') navigator.vibrate([50, 50, 80]);
+      }
+
+      if (!state.soundEnabled) return;
+      initAudio();
+      if (!audioCtx) return;
+
+      const now = audioCtx.currentTime;
+
+      if (type === 'score') {
+        // Crisp courtside digital beep (+1 / +2)
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(587.33, now); // D5
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.09); // A5
+        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.14);
+      } else if (type === 'three') {
+        // Exciting 3-Point triad fanfare chime!
+        const freqs = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
+        freqs.forEach((f, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          const start = now + idx * 0.045;
+          osc.frequency.setValueAtTime(f, start);
+          gain.gain.setValueAtTime(0.15, start);
+          gain.gain.exponentialRampToValueAtTime(0.001, start + 0.22);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(start);
+          osc.stop(start + 0.22);
+        });
+      } else if (type === 'minus' || type === 'undo') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(360, now);
+        osc.frequency.exponentialRampToValueAtTime(240, now + 0.1);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.11);
+      } else if (type === 'reset') {
+        // Arena buzzer sound
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(145, now);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.38);
+      }
+    }
+
+    // --- Core Scoring Actions ---
+    function handleCardTap(team, event) {
+      addScore(team, state.tapIncrement, event);
+    }
+
+    function addScore(team, delta, event) {
+      const currentScore = team === 'red' ? state.redScore : state.blueScore;
+      const nextScore = Math.max(0, Math.min(999, currentScore + delta));
+
+      // Ignore if trying to subtract from 0
+      if (nextScore === currentScore) return;
+
+      // Record in undo history
+      pushHistory({
+        redScore: state.redScore,
+        blueScore: state.blueScore,
+        description: `${team === 'red' ? state.redName : state.blueName} ${delta > 0 ? '+' + delta : delta}`
+      });
+
+      if (team === 'red') {
+        state.redScore = nextScore;
+      } else {
+        state.blueScore = nextScore;
+      }
+
+      saveState();
+      renderScores(team, delta);
+
+      // Sound & Haptic feedback
+      if (delta === 3) {
+        triggerFeedback('three');
+      } else if (delta > 0) {
+        triggerFeedback('score');
+      } else {
+        triggerFeedback('minus');
+      }
+
+      // Floating +1 / +2 / +3 visual burst on card
+      spawnFloatingBurst(team, delta, event);
+    }
+
+    function pushHistory(snapshot) {
+      state.history.push(snapshot);
+      if (state.history.length > 50) {
+        state.history.shift();
+      }
+      updateUndoButton();
+    }
+
+    function undoLastAction() {
+      if (state.history.length === 0) return;
+      const last = state.history.pop();
+      state.redScore = last.redScore;
+      state.blueScore = last.blueScore;
+      saveState();
+      renderAll();
+      triggerFeedback('undo');
+      showToast(`已撤销：${last.description}`);
+    }
+
+    // --- Default Tap Increment Selector (+1 / +2 / +3) ---
+    function setTapIncrement(val) {
+      if (![1, 2, 3].includes(val)) return;
+      state.tapIncrement = val;
+      saveState();
+      renderIncrementSelector();
+      triggerFeedback('score');
+      showToast(`点击大牌面每次 +${val} 分`);
+    }
+
+    // --- Swap Left/Right Sides ---
+    function swapSides() {
+      state.swapped = !state.swapped;
+      saveState();
+      renderSwapOrder();
+      triggerFeedback('score');
+      showToast('已左右换边');
+    }
+
+    // --- Reset Modal ---
+    function openResetModal() {
+      document.getElementById('reset-modal').classList.remove('hidden');
+    }
+
+    function closeResetModal() {
+      document.getElementById('reset-modal').classList.add('hidden');
+    }
+
+    function confirmResetScores() {
+      closeResetModal();
+      if (state.redScore === 0 && state.blueScore === 0) {
+        showToast('当前比分已经是 0 : 0');
+        return;
+      }
+      pushHistory({
+        redScore: state.redScore,
+        blueScore: state.blueScore,
+        description: `重置前 (${state.redScore}:${state.blueScore})`
+      });
+      state.redScore = 0;
+      state.blueScore = 0;
+      saveState();
+      renderAll();
+      triggerFeedback('reset');
+      showToast('比分已归零（可随时点撤销恢复）');
+    }
+
+    // --- Editable Team Names ---
+    function openTeamNameModal(team) {
+      editingTeam = team;
+      const modal = document.getElementById('name-modal');
+      const title = document.getElementById('name-modal-title');
+      const input = document.getElementById('team-name-input');
+
+      title.textContent = team === 'red' ? '修改红队名称' : '修改蓝队名称';
+      input.value = team === 'red' ? state.redName : state.blueName;
+      modal.classList.remove('hidden');
+      setTimeout(() => input.focus(), 60);
+    }
+
+    function closeTeamNameModal() {
+      editingTeam = null;
+      document.getElementById('name-modal').classList.add('hidden');
+    }
+
+    function applyPresetName(preset) {
+      document.getElementById('team-name-input').value = preset;
+    }
+
+    function saveTeamName() {
+      if (!editingTeam) return;
+      const input = document.getElementById('team-name-input');
+      const cleanName = input.value.trim();
+      if (cleanName) {
+        if (editingTeam === 'red') state.redName = cleanName;
+        else state.blueName = cleanName;
+        saveState();
+        renderTeamNames();
+        showToast('队伍名称已更新');
+      }
+      closeTeamNameModal();
+    }
+
+    // --- Sound, Orientation & Fullscreen Toggles ---
+    function toggleSound() {
+      state.soundEnabled = !state.soundEnabled;
+      saveState();
+      renderSoundButton();
+      if (state.soundEnabled) triggerFeedback('score');
+      showToast(state.soundEnabled ? '音效与震动：已开启' : '音效与震动：已静音');
+    }
+
+    function toggleForceLandscape() {
+      state.forceLandscape = !state.forceLandscape;
+      saveState();
+      renderOrientationMode();
+      showToast(state.forceLandscape ? '已开启竖屏自动横置' : '已关闭强制旋转');
+    }
+
+    function toggleFullScreen() {
+      const docEl = document.documentElement;
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        if (docEl.requestFullscreen) {
+          docEl.requestFullscreen().catch(() => {});
+        } else if (docEl.webkitRequestFullscreen) {
+          docEl.webkitRequestFullscreen();
+        }
+        showToast('已进入全屏模式');
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        }
+      }
+    }
+
+    // --- UI Rendering Functions ---
+    function renderAll() {
+      renderScores(null, 0);
+      renderTeamNames();
+      renderIncrementSelector();
+      renderSwapOrder();
+      renderSoundButton();
+      renderOrientationMode();
+      updateUndoButton();
+    }
+
+    function renderScores(animatedTeam, delta) {
+      const redEl = document.getElementById('score-red');
+      const blueEl = document.getElementById('score-blue');
+
+      redEl.textContent = state.redScore;
+      blueEl.textContent = state.blueScore;
+
+      // Dynamic font scaling when score reaches 100+ so 3 digits never clip
+      redEl.style.fontSize = state.redScore >= 100 ? '18vw' : '';
+      blueEl.style.fontSize = state.blueScore >= 100 ? '18vw' : '';
+
+      if (animatedTeam) {
+        const targetEl = animatedTeam === 'red' ? redEl : blueEl;
+        targetEl.classList.remove('animate-score-pop', 'animate-score-three');
+        void targetEl.offsetWidth; // Force reflow
+        targetEl.classList.add(delta === 3 ? 'animate-score-three' : 'animate-score-pop');
+      }
+
+      // Update Lead Crown & Score Difference Badge
+      const leadRed = document.getElementById('lead-badge-red');
+      const leadBlue = document.getElementById('lead-badge-blue');
+      const diffBadge = document.getElementById('score-diff-badge');
+      const diff = Math.abs(state.redScore - state.blueScore);
+
+      if (state.redScore > state.blueScore) {
+        leadRed.classList.remove('hidden');
+        leadBlue.classList.add('hidden');
+        diffBadge.textContent = `${state.redName.split(' ')[0]} 领先 +${diff}`;
+        diffBadge.className = 'text-xs font-bold text-red-300 tracking-wide';
+      } else if (state.blueScore > state.redScore) {
+        leadBlue.classList.remove('hidden');
+        leadRed.classList.add('hidden');
+        diffBadge.textContent = `${state.blueName.split(' ')[0]} 领先 +${diff}`;
+        diffBadge.className = 'text-xs font-bold text-blue-300 tracking-wide';
+      } else {
+        leadRed.classList.add('hidden');
+        leadBlue.classList.add('hidden');
+        diffBadge.textContent = `平局 TIED (${state.redScore}:${state.blueScore})`;
+        diffBadge.className = 'text-xs font-bold text-slate-300 tracking-wide';
+      }
+    }
+
+    function renderTeamNames() {
+      document.getElementById('name-red').textContent = state.redName;
+      document.getElementById('name-blue').textContent = state.blueName;
+    }
+
+    function renderIncrementSelector() {
+      [1, 2, 3].forEach((num) => {
+        const btn = document.getElementById(`inc-btn-${num}`);
+        if (state.tapIncrement === num) {
+          btn.className = 'tactile-btn px-2.5 py-1 rounded-lg text-xs sm:text-sm font-black bg-amber-400 text-slate-950 shadow-sm transition-all';
+        } else {
+          btn.className = 'tactile-btn px-2.5 py-1 rounded-lg text-xs sm:text-sm font-black text-slate-400 hover:text-white transition-all';
+        }
+      });
+
+      const hintText = `点牌面 +${state.tapIncrement}`;
+      document.getElementById('tap-hint-red').textContent = hintText;
+      document.getElementById('tap-hint-blue').textContent = hintText;
+    }
+
+    function renderSwapOrder() {
+      const panelRed = document.getElementById('panel-red');
+      const panelBlue = document.getElementById('panel-blue');
+      if (state.swapped) {
+        panelBlue.style.order = '1';
+        panelRed.style.order = '2';
+      } else {
+        panelRed.style.order = '1';
+        panelBlue.style.order = '2';
+      }
+    }
+
+    function renderSoundButton() {
+      const onIcon = document.getElementById('sound-icon-on');
+      const offIcon = document.getElementById('sound-icon-off');
+      if (state.soundEnabled) {
+        onIcon.classList.remove('hidden');
+        offIcon.classList.add('hidden');
+      } else {
+        onIcon.classList.add('hidden');
+        offIcon.classList.remove('hidden');
+      }
+    }
+
+    function renderOrientationMode() {
+      if (state.forceLandscape) {
+        document.body.classList.add('force-landscape');
+      } else {
+        document.body.classList.remove('force-landscape');
+      }
+    }
+
+    function updateUndoButton() {
+      const undoBtn = document.getElementById('undo-btn');
+      undoBtn.disabled = state.history.length === 0;
+    }
+
+    // --- Visual Floating Point Burst Effect ---
+    function spawnFloatingBurst(team, delta, event) {
+      const card = document.getElementById(team === 'red' ? 'card-red' : 'card-blue');
+      const badge = document.createElement('div');
+      const label = delta > 0 ? (delta === 3 ? '🔥 +3' : `+${delta}`) : `${delta}`;
+
+      badge.className = `floating-badge text-4xl sm:text-6xl ${
+        delta === 3
+          ? 'text-amber-300 drop-shadow-[0_4px_16px_rgba(251,191,36,0.9)]'
+          : delta > 0
+          ? 'text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.7)]'
+          : 'text-rose-300 text-3xl'
+      }`;
+      badge.textContent = label;
+
+      // Position near tap or center of card
+      let xPercent = 50;
+      let yPercent = 50;
+      if (event && event.clientX !== undefined && event.currentTarget === card) {
+        const rect = card.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          xPercent = Math.min(80, Math.max(20, ((event.clientX - rect.left) / rect.width) * 100));
+          yPercent = Math.min(80, Math.max(25, ((event.clientY - rect.top) / rect.height) * 100));
+        }
+      }
+
+      badge.style.left = `${xPercent}%`;
+      badge.style.top = `${yPercent}%`;
+
+      card.appendChild(badge);
+      setTimeout(() => badge.remove(), 720);
+    }
+
+    // --- Toast Helper ---
+    function showToast(message) {
+      const banner = document.getElementById('toast-banner');
+      const text = document.getElementById('toast-text');
+      text.textContent = message;
+      banner.classList.remove('opacity-0', '-translate-y-2');
+      banner.classList.add('opacity-100', 'translate-y-0');
+
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        banner.classList.remove('opacity-100', 'translate-y-0');
+        banner.classList.add('opacity-0', '-translate-y-2');
+      }, 1600);
+    }
+  </script>
+</body>
+</html>
+```
